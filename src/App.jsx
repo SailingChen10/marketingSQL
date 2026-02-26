@@ -1557,7 +1557,7 @@ ORDER BY cg.channel_group;
 ];
 
 // Main Component
-export default function MarketingAnalyticsSQL() {
+   function MarketingAnalyticsSQL() {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [sqlCode, setSqlCode] = useState('');
   const [queryResult, setQueryResult] = useState(null);
