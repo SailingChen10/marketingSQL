@@ -2426,5 +2426,5 @@ GROUP BY column1;`}
     </div>
   );
 }
-
 export default MarketingAnalyticsSQL;
+export { MarketingAnalyticsSQL as App };
