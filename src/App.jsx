@@ -2427,4 +2427,3 @@ GROUP BY column1;`}
   );
 }
 export default MarketingAnalyticsSQL;
-export { MarketingAnalyticsSQL as App };
