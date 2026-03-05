@@ -82,6 +82,87 @@ const GUMROAD_PRODUCT_ID = 'marketingSQLPro';
 
 // SQL Questions Database - Reordered and Updated
 const QUESTIONS = [
+  // SECTION 2: MULTI-TOUCH ATTRIBUTION
+  {
+    id: 2,
+    section: 2,
+    sectionTitle: "Multi-Touch Attribution",
+    questionNumber: "2.1",
+    title: "Revenue Attribution - Last Touch",
+    difficulty: "Medium",
+    description: "You're a growth analyst at a B2C subscription app company. The user signup journey is: landed on marketing campaign page > created an account > signed up for trial. In this case, all subscriptions are attributed to last touch.",
+    backgroundContext: `**Attribution Models:**
+
+There are three common attribution models:
+
+1. **First-Touch Attribution**: All credit goes to the first channel that brought the user
+   - Example: User sees Facebook ad (first touch) → clicks Google ad → subscribes
+   - Facebook gets 100% credit
+
+2. **Linear Attribution**: Credit is split equally among all touchpoints
+   - Same example: Facebook gets 50%, Google gets 50%
+
+3. **Last-Touch Attribution**: All credit goes to the last channel before conversion
+   - Same example: Google gets 100% credit
+   - **Most commonly used in actual work** because it shows what finally drove the conversion
+
+**In this exercise, we'll use last-touch attribution.**`,
+    tables: {
+      campaign_touch: [
+        { subscription_id: 'S1', campaign_id: 'C1', channel: 'Facebook', trial_start: '2025-01-01' },
+        { subscription_id: 'S1', campaign_id: 'C2', channel: 'Google', trial_start: '2025-01-05' },
+        { subscription_id: 'S2', campaign_id: 'C1', channel: 'Facebook', trial_start: '2025-01-03' },
+        { subscription_id: 'S2', campaign_id: 'C3', channel: 'LinkedIn', trial_start: '2025-01-06' },
+        { subscription_id: 'S3', campaign_id: 'C2', channel: 'Google', trial_start: '2025-01-02' },
+        { subscription_id: 'S4', campaign_id: 'C3', channel: 'LinkedIn', trial_start: '2025-01-04' }
+      ],
+      campaigns: [
+        { id: 'C1', channel: 'Facebook' },
+        { id: 'C2', channel: 'Google' },
+        { id: 'C3', channel: 'LinkedIn' }
+      ],
+      subscription_data: [
+        { subscription_id: 'S1', invoice_pricing: 500 },
+        { subscription_id: 'S2', invoice_pricing: 300 },
+        { subscription_id: 'S3', invoice_pricing: 200 },
+        { subscription_id: 'S4', invoice_pricing: 400 }
+      ],
+      ad_spend: [
+        { channel: 'Facebook', spend: 300 },
+        { channel: 'Google', spend: 400 },
+        { channel: 'LinkedIn', spend: 200 }
+      ]
+    },
+    expectedColumns: ['channel', 'revenue', 'spend', 'roas'],
+    hint: "Use window function RANK() or ROW_NUMBER() OVER (PARTITION BY subscription_id ORDER BY trial_start DESC) to identify the last touch. Then aggregate revenue by channel and calculate ROAS = revenue / spend.",
+    concept: "Last-touch attribution, Window functions, ROAS calculation",
+    sampleAnswer: `WITH last_touch AS (
+  SELECT
+    subscription_id,
+    channel,
+    ROW_NUMBER() OVER (PARTITION BY subscription_id ORDER BY trial_start DESC) AS rn
+  FROM campaign_touch
+),
+revenue_by_channel AS (
+  SELECT
+    lt.channel,
+    SUM(sd.invoice_pricing) AS revenue
+  FROM last_touch lt
+  JOIN subscription_data sd ON sd.subscription_id = lt.subscription_id
+  WHERE lt.rn = 1
+  GROUP BY lt.channel
+)
+
+SELECT
+  r.channel,
+  r.revenue,
+  s.spend,
+  ROUND(r.revenue / NULLIF(s.spend, 0), 2) AS roas
+FROM revenue_by_channel r
+JOIN ad_spend s ON s.channel = r.channel
+ORDER BY roas DESC;`
+  },
+
   // SECTION 1: AD CHANNEL PERFORMANCE
   {
     id: 1,
@@ -89,7 +170,7 @@ const QUESTIONS = [
     sectionTitle: "Ad Channel Performance",
     questionNumber: "1.1",
     title: "3-Day Rolling Average Signups by Channel",
-    difficulty: "Medium",
+    difficulty: "Hard",
     description: "Calculate the 3-day rolling average of daily signups for each channel. Only include rows where we have complete 3-day data.",
     backgroundContext: `**What is Rolling Average?**
 
@@ -205,87 +286,6 @@ SELECT
 FROM rolling_calc
 WHERE window_size = 3  -- Only rows with exactly 3 days in window
 ORDER BY channel, date;`
-  },
-
-  // SECTION 2: MULTI-TOUCH ATTRIBUTION
-  {
-    id: 2,
-    section: 2,
-    sectionTitle: "Multi-Touch Attribution",
-    questionNumber: "2.1",
-    title: "Revenue Attribution - Last Touch",
-    difficulty: "Hard",
-    description: "You're a growth analyst at a B2C subscription app company. The user signup journey is: landed on marketing campaign page > created an account > signed up for trial. In this case, all subscriptions are attributed to last touch.",
-    backgroundContext: `**Attribution Models:**
-
-There are three common attribution models:
-
-1. **First-Touch Attribution**: All credit goes to the first channel that brought the user
-   - Example: User sees Facebook ad (first touch) → clicks Google ad → subscribes
-   - Facebook gets 100% credit
-
-2. **Linear Attribution**: Credit is split equally among all touchpoints
-   - Same example: Facebook gets 50%, Google gets 50%
-
-3. **Last-Touch Attribution**: All credit goes to the last channel before conversion
-   - Same example: Google gets 100% credit
-   - **Most commonly used in actual work** because it shows what finally drove the conversion
-
-**In this exercise, we'll use last-touch attribution.**`,
-    tables: {
-      campaign_touch: [
-        { subscription_id: 'S1', campaign_id: 'C1', channel: 'Facebook', trial_start: '2025-01-01' },
-        { subscription_id: 'S1', campaign_id: 'C2', channel: 'Google', trial_start: '2025-01-05' },
-        { subscription_id: 'S2', campaign_id: 'C1', channel: 'Facebook', trial_start: '2025-01-03' },
-        { subscription_id: 'S2', campaign_id: 'C3', channel: 'LinkedIn', trial_start: '2025-01-06' },
-        { subscription_id: 'S3', campaign_id: 'C2', channel: 'Google', trial_start: '2025-01-02' },
-        { subscription_id: 'S4', campaign_id: 'C3', channel: 'LinkedIn', trial_start: '2025-01-04' }
-      ],
-      campaigns: [
-        { id: 'C1', channel: 'Facebook' },
-        { id: 'C2', channel: 'Google' },
-        { id: 'C3', channel: 'LinkedIn' }
-      ],
-      subscription_data: [
-        { subscription_id: 'S1', invoice_pricing: 500 },
-        { subscription_id: 'S2', invoice_pricing: 300 },
-        { subscription_id: 'S3', invoice_pricing: 200 },
-        { subscription_id: 'S4', invoice_pricing: 400 }
-      ],
-      ad_spend: [
-        { channel: 'Facebook', spend: 300 },
-        { channel: 'Google', spend: 400 },
-        { channel: 'LinkedIn', spend: 200 }
-      ]
-    },
-    expectedColumns: ['channel', 'revenue', 'spend', 'roas'],
-    hint: "Use window function RANK() or ROW_NUMBER() OVER (PARTITION BY subscription_id ORDER BY trial_start DESC) to identify the last touch. Then aggregate revenue by channel and calculate ROAS = revenue / spend.",
-    concept: "Last-touch attribution, Window functions, ROAS calculation",
-    sampleAnswer: `WITH last_touch AS (
-  SELECT
-    subscription_id,
-    channel,
-    ROW_NUMBER() OVER (PARTITION BY subscription_id ORDER BY trial_start DESC) AS rn
-  FROM campaign_touch
-),
-revenue_by_channel AS (
-  SELECT
-    lt.channel,
-    SUM(sd.invoice_pricing) AS revenue
-  FROM last_touch lt
-  JOIN subscription_data sd ON sd.subscription_id = lt.subscription_id
-  WHERE lt.rn = 1
-  GROUP BY lt.channel
-)
-
-SELECT
-  r.channel,
-  r.revenue,
-  s.spend,
-  ROUND(r.revenue / NULLIF(s.spend, 0), 2) AS roas
-FROM revenue_by_channel r
-JOIN ad_spend s ON s.channel = r.channel
-ORDER BY roas DESC;`
   },
 
   {
@@ -942,7 +942,7 @@ ORDER BY win_rate DESC;`
 
   // SECTION 5: PIPELINE VELOCITY
   {
-    id: 9,
+    id: 6,
     section: 10,
     sectionTitle: "Pipeline Analysis",
     questionNumber: "10.1",
@@ -995,15 +995,15 @@ GROUP BY DATE_TRUNC('month', created_at)
 ORDER BY mth;`
   },
 
-  // SECTION 6: RFM SEGMENTATION
+  // SECTION 6: CUSTOMER SEGMENTATION
   {
     id: 10,
     section: 4,
     sectionTitle: "Customer Segmentation",
     questionNumber: "4.1",
-    title: "RFM Segmentation",
+    title: "RFM Customer Tier Segmentation",
     difficulty: "Medium",
-    description: "Assign Recency, Frequency, and Monetary scores (1-5) using NTILE and output RFM segments.",
+    description: "Calculate RFM scores (Recency, Frequency, Monetary) for each customer, sum the three scores to get a total score, then classify customers into High/Mid/Low tiers. Return the count of customers in each tier.",
     backgroundContext: `**What is RFM Analysis?**
 
 RFM is a customer segmentation technique that groups customers based on three dimensions:
@@ -1011,7 +1011,6 @@ RFM is a customer segmentation technique that groups customers based on three di
 **R - Recency**: How recently did the customer purchase?
 - Score 5 = Most recent (purchased yesterday)
 - Score 1 = Least recent (purchased 6 months ago)
-- Better predictor than Frequency or Monetary alone
 
 **F - Frequency**: How often do they purchase?
 - Score 5 = Very frequent (10+ orders)
@@ -1021,16 +1020,16 @@ RFM is a customer segmentation technique that groups customers based on three di
 - Score 5 = High spender ($5000+)
 - Score 1 = Low spender ($100)
 
-**RFM Segments:**
-- "555" = Champions (recent, frequent, high-value)
-- "511" = Recent big spenders (might become loyal)
-- "155" = Churning high-value (need win-back campaign)
-- "111" = Lost customers
+**Total Score Tiers:**
+After calculating R, F, M scores (each 1-5), sum them up:
+- **High tier**: Total score 12-15 (Champions - recent, frequent, high-value)
+- **Mid tier**: Total score 8-11 (Solid customers)
+- **Low tier**: Total score 3-7 (At-risk or lost customers)
 
-**Why RFM matters:**
-- Personalize marketing campaigns
-- Identify at-risk customers
-- Prioritize retention efforts`,
+**Why this matters:**
+- Target high-tier customers with loyalty programs
+- Re-engage mid-tier customers with personalized offers
+- Win-back low-tier customers with special promotions`,
     tables: {
       orders: [
         { user_id: 'U1', order_time: '2025-01-15', revenue: 500 },
@@ -1043,9 +1042,9 @@ RFM is a customer segmentation technique that groups customers based on three di
         { user_id: 'U5', order_time: '2025-02-01', revenue: 800 }
       ]
     },
-    expectedColumns: ['rfm_segment', 'users'],
-    hint: "Calculate per user: MAX(order_time) for recency, COUNT(*) for frequency, SUM(revenue) for monetary. Use NTILE(5) to score each dimension (remember: for recency, more recent = higher score, so use DESC). Concatenate scores to create segment.",
-    concept: "Window functions (NTILE), CONCAT, Date arithmetic, RFM methodology",
+    expectedColumns: ['tier', 'customer_count'],
+    hint: "First calculate R, F, M scores using NTILE(5). Then sum the three scores (r_score + f_score + m_score). Finally, use CASE WHEN to classify: 12-15=High, 8-11=Mid, 3-7=Low. Count customers in each tier.",
+    concept: "Window functions (NTILE), Score calculation, CASE WHEN classification",
     sampleAnswer: `WITH user_metrics AS (
   SELECT
     user_id,
@@ -1058,19 +1057,39 @@ RFM is a customer segmentation technique that groups customers based on three di
 rfm_scores AS (
   SELECT
     user_id,
-    -- Recency: Lower days = higher score (so use DESC)
     NTILE(5) OVER (ORDER BY days_since_last_order DESC) AS r_score,
     NTILE(5) OVER (ORDER BY order_count) AS f_score,
     NTILE(5) OVER (ORDER BY total_revenue) AS m_score
   FROM user_metrics
+),
+rfm_total AS (
+  SELECT
+    user_id,
+    r_score + f_score + m_score AS total_score
+  FROM rfm_scores
+),
+tier_classification AS (
+  SELECT
+    user_id,
+    CASE
+      WHEN total_score BETWEEN 12 AND 15 THEN 'High'
+      WHEN total_score BETWEEN 8 AND 11 THEN 'Mid'
+      ELSE 'Low'
+    END AS tier
+  FROM rfm_total
 )
 
 SELECT
-  CONCAT(r_score, f_score, m_score) AS rfm_segment,
-  COUNT(*) AS users
-FROM rfm_scores
-GROUP BY CONCAT(r_score, f_score, m_score)
-ORDER BY users DESC;`
+  tier,
+  COUNT(*) AS customer_count
+FROM tier_classification
+GROUP BY tier
+ORDER BY 
+  CASE tier
+    WHEN 'High' THEN 1
+    WHEN 'Mid' THEN 2
+    WHEN 'Low' THEN 3
+  END;`
   },
 
   // SECTION 7: LANDING PAGE ANALYSIS
@@ -1081,7 +1100,7 @@ ORDER BY users DESC;`
     questionNumber: "5.1",
     title: "Top Landing Pages by Conversion Rate",
     difficulty: "Medium",
-    description: "Find top 20 landing pages (last 30 days) and their purchase conversion rate.",
+    description: "Identify each user's first page_view as their landing page. Find top 20 landing pages (last 30 days) and their purchase conversion rate.",
     backgroundContext: `**Landing Page Analysis**
 
 Landing pages are where users first enter your site. Understanding which pages convert best helps you:
@@ -1215,78 +1234,480 @@ FROM user_data
 WHERE subscription_date IS NOT NULL;`
   },
 
-  // SECTION 9: DATA QUALITY
+  // SECTION 7: E-COMMERCE ANALYTICS
   {
     id: 13,
-    section: 7,
-    sectionTitle: "Data Quality & Deduplication",
-    questionNumber: "7.1",
-    title: "Latest Activity per Lead (Deduplication)",
-    difficulty: "Easy",
-    description: "Return the most recent record per (lead_id, activity_type) combination.",
-    backgroundContext: `**Why Deduplication Matters**
+    section: 5,
+    sectionTitle: "Web Analytics",
+    questionNumber: "5.2",
+    title: "Shopping Cart Abandonment Analysis",
+    difficulty: "Medium",
+    description: `You're an e-commerce growth analyst. The marketing team wants to send "reminder emails" to users who added products to cart but haven't purchased yet.
 
-In real-world data, you often have:
-- Multiple emails sent to same lead
-- Multiple calls logged
-- Duplicate records from system integrations
+Find all users who:
+- Added items to cart in the last 7 days
+- But did NOT complete a purchase for those items
+- Return: user_id, product_id, added_at (when they added to cart)`,
+    backgroundContext: `**Why Cart Abandonment Matters:**
 
-Deduplication ensures:
-- Accurate counts (don't double-count activities)
-- Latest information (use most recent record)
-- Clean reporting
+Cart abandonment is one of the biggest revenue leaks in e-commerce:
+- Average cart abandonment rate: 60-80%
+- Cart recovery emails have 10-30% conversion rate
+- Direct impact on revenue
 
-**Common Deduplication Scenarios:**
-1. Latest activity per lead (this exercise)
-2. Latest user profile update
-3. Most recent order status
-4. Newest address on file`,
+**Business Use Case:**
+Send automated reminder emails to users who:
+1. Added products to cart but didn't buy
+2. Recent enough to still be interested (last 7 days)
+
+**Recovery Email Example:**
+"You left something in your cart! Complete your purchase and get 10% off."
+
+**Why NOT EXISTS / Anti-Join:**
+We need to find records that DON'T have a matching record (users who added but didn't purchase).`,
     tables: {
-      sales_activities: [
-        { id: 1, lead_id: 'L1', activity_type: 'email', activity_at: '2024-01-10' },
-        { id: 2, lead_id: 'L1', activity_type: 'email', activity_at: '2024-01-15' },
-        { id: 3, lead_id: 'L1', activity_type: 'call', activity_at: '2024-01-12' },
-        { id: 4, lead_id: 'L2', activity_type: 'email', activity_at: '2024-01-11' },
-        { id: 5, lead_id: 'L2', activity_type: 'call', activity_at: '2024-01-14' },
-        { id: 6, lead_id: 'L2', activity_type: 'call', activity_at: '2024-01-18' }
+      cart_events: [
+        { user_id: 'U001', product_id: 'P100', event_type: 'add_to_cart', event_time: '2025-02-20 10:00:00' },
+        { user_id: 'U001', product_id: 'P100', event_type: 'purchase', event_time: '2025-02-20 10:30:00' },
+        { user_id: 'U002', product_id: 'P101', event_type: 'add_to_cart', event_time: '2025-02-21 14:00:00' },
+        { user_id: 'U003', product_id: 'P102', event_type: 'add_to_cart', event_time: '2025-02-22 09:00:00' },
+        { user_id: 'U003', product_id: 'P103', event_type: 'add_to_cart', event_time: '2025-02-22 09:15:00' },
+        { user_id: 'U004', product_id: 'P100', event_type: 'add_to_cart', event_time: '2025-02-23 16:00:00' },
+        { user_id: 'U004', product_id: 'P100', event_type: 'purchase', event_time: '2025-02-23 16:05:00' },
+        { user_id: 'U005', product_id: 'P104', event_type: 'add_to_cart', event_time: '2025-02-15 12:00:00' }
       ]
     },
-    expectedColumns: ['id', 'lead_id', 'activity_type', 'activity_at', 'rn'],
-    hint: "Use ROW_NUMBER() OVER (PARTITION BY lead_id, activity_type ORDER BY activity_at DESC). Filter WHERE rn = 1 to get only the most recent record for each combination.",
-    concept: "Window functions (ROW_NUMBER), PARTITION BY multiple columns, Deduplication",
-    sampleAnswer: `SELECT
-  id,
-  lead_id,
-  activity_type,
-  activity_at,
-  ROW_NUMBER() OVER (
-    PARTITION BY lead_id, activity_type 
-    ORDER BY activity_at DESC
-  ) AS rn
-FROM sales_activities
-QUALIFY rn = 1;
+    expectedColumns: ['user_id', 'product_id', 'added_at'],
+    hint: `Tips:
+- Filter cart_events for event_type = 'add_to_cart' and last 7 days
+- Use LEFT JOIN to check if same user + product has a 'purchase' event
+- Filter WHERE purchase event IS NULL (anti-join pattern)
 
--- Alternative without QUALIFY:
-WITH ranked AS (
-  SELECT
-    id,
-    lead_id,
-    activity_type,
-    activity_at,
-    ROW_NUMBER() OVER (
-      PARTITION BY lead_id, activity_type 
-      ORDER BY activity_at DESC
-    ) AS rn
-  FROM sales_activities
+Concepts: Anti-join, LEFT JOIN + IS NULL, Date filtering`,
+    concept: "Anti-join pattern, Cart abandonment analysis, E-commerce funnel",
+    sampleAnswer: `-- ============================================================
+-- METHOD 1: LEFT JOIN (Anti-join Pattern)
+-- ============================================================
+-- Best for: Clear anti-join logic, easy to understand
+-- When to use: When you need to find records WITHOUT a match
+
+WITH cart_adds AS (
+  SELECT 
+    user_id,
+    product_id,
+    event_time AS added_at
+  FROM cart_events
+  WHERE event_type = 'add_to_cart'
+    AND event_time >= CURRENT_DATE - INTERVAL '7 days'
+),
+purchases AS (
+  SELECT DISTINCT
+    user_id,
+    product_id
+  FROM cart_events
+  WHERE event_type = 'purchase'
 )
-SELECT *
-FROM ranked
-WHERE rn = 1;`
+
+SELECT 
+  c.user_id,
+  c.product_id,
+  c.added_at
+FROM cart_adds c
+LEFT JOIN purchases p 
+  ON c.user_id = p.user_id 
+  AND c.product_id = p.product_id
+WHERE p.user_id IS NULL
+ORDER BY c.added_at DESC;
+
+
+-- ============================================================
+-- METHOD 2: Window Function (LEAD)
+-- ============================================================
+-- Best for: Event stream analysis, checking next action
+-- When to use: When data is already in chronological event log format
+
+WITH events_ordered AS (
+  SELECT 
+    user_id,
+    product_id,
+    event_type,
+    event_time,
+    LEAD(event_type) OVER (
+      PARTITION BY user_id, product_id 
+      ORDER BY event_time
+    ) AS next_event
+  FROM cart_events
+  WHERE event_time >= CURRENT_DATE - INTERVAL '7 days'
+)
+
+SELECT 
+  user_id,
+  product_id,
+  event_time AS added_at
+FROM events_ordered
+WHERE event_type = 'add_to_cart'
+  AND (next_event IS NULL OR next_event != 'purchase')
+ORDER BY event_time DESC;
+
+
+-- ============================================================
+-- SOLUTION COMPARISON
+-- ============================================================
+-- Method 1 (LEFT JOIN): 
+--   ✓ Most readable and intuitive
+--   ✓ Industry standard for anti-join patterns
+--   ✓ Better performance on large datasets (can use indexes)
+--   
+-- Method 2 (Window Function): 
+--   ✓ Good for sequential event analysis
+--   ✓ Can easily extend to check multiple next events
+--   ✗ May miss cases if events are not perfectly sequential
+--   ✗ More complex logic, harder to maintain`
   },
 
-  // SECTION 10: GROWTH METRICS
+  // SECTION 8: EMAIL MARKETING ANALYTICS
   {
     id: 14,
+    section: 7,
+    sectionTitle: "Email Marketing",
+    questionNumber: "7.1",
+    title: "Email Engagement Scoring",
+    difficulty: "Medium",
+    description: `The email marketing team needs to score each user's engagement to decide whether to keep sending emails or unsubscribe them (to avoid spam complaints).
+
+Scoring rules:
+- email_opened: +1 point
+- link_clicked: +3 points  
+- unsubscribed: -10 points
+
+Calculate each user's total engagement score and their last activity date.
+Return users sorted by score (highest first).`,
+    backgroundContext: `**Why Email Engagement Scoring Matters:**
+
+Email service providers (Gmail, Yahoo) track engagement:
+- Low engagement → emails go to spam
+- High bounce/complaint rates → domain gets blacklisted
+- Sending to unengaged users wastes money
+
+**Business Strategy:**
+- **High scores (4+)**: Keep sending, they're engaged
+- **Medium scores (1-3)**: Send less frequently, monitor
+- **Negative scores**: Stop sending, clean list
+
+**Real-World Impact:**
+- Better deliverability rates
+- Lower costs (pay per email sent)
+- Avoid spam filters
+- Maintain sender reputation`,
+    tables: {
+      email_activities: [
+        { user_id: 'U001', activity_type: 'email_opened', activity_at: '2025-02-01' },
+        { user_id: 'U001', activity_type: 'link_clicked', activity_at: '2025-02-02' },
+        { user_id: 'U001', activity_type: 'email_opened', activity_at: '2025-02-05' },
+        { user_id: 'U002', activity_type: 'email_opened', activity_at: '2025-02-03' },
+        { user_id: 'U002', activity_type: 'unsubscribed', activity_at: '2025-02-10' },
+        { user_id: 'U003', activity_type: 'email_opened', activity_at: '2025-02-01' },
+        { user_id: 'U003', activity_type: 'email_opened', activity_at: '2025-02-04' },
+        { user_id: 'U003', activity_type: 'link_clicked', activity_at: '2025-02-06' },
+        { user_id: 'U003', activity_type: 'link_clicked', activity_at: '2025-02-08' },
+        { user_id: 'U004', activity_type: 'email_opened', activity_at: '2025-02-12' },
+        { user_id: 'U005', activity_type: 'link_clicked', activity_at: '2025-02-05' },
+        { user_id: 'U005', activity_type: 'email_opened', activity_at: '2025-02-07' }
+      ]
+    },
+    expectedColumns: ['user_id', 'engagement_score', 'last_activity_at'],
+    hint: `Tips:
+- Use CASE WHEN to assign points based on activity_type
+- SUM() the points grouped by user_id
+- MAX(activity_at) to get the last activity date
+- ORDER BY engagement_score DESC
+
+Concepts: CASE WHEN scoring logic, Aggregation, Date functions`,
+    concept: "Conditional aggregation, Email engagement metrics, User scoring",
+    sampleAnswer: `SELECT 
+  user_id,
+  SUM(
+    CASE activity_type
+      WHEN 'email_opened' THEN 1
+      WHEN 'link_clicked' THEN 3
+      WHEN 'unsubscribed' THEN -10
+      ELSE 0
+    END
+  ) AS engagement_score,
+  MAX(activity_at) AS last_activity_at
+FROM email_activities
+GROUP BY user_id
+ORDER BY engagement_score DESC;
+
+-- With business logic explanation
+SELECT 
+  user_id,
+  SUM(
+    CASE activity_type
+      WHEN 'email_opened' THEN 1      -- Basic engagement
+      WHEN 'link_clicked' THEN 3      -- High-value action
+      WHEN 'unsubscribed' THEN -10    -- Stop sending emails
+      ELSE 0
+    END
+  ) AS engagement_score,
+  MAX(activity_at) AS last_activity_at,
+  CASE 
+    WHEN SUM(CASE activity_type WHEN 'email_opened' THEN 1 WHEN 'link_clicked' THEN 3 WHEN 'unsubscribed' THEN -10 ELSE 0 END) >= 4 
+      THEN 'Keep Sending'
+    WHEN SUM(CASE activity_type WHEN 'email_opened' THEN 1 WHEN 'link_clicked' THEN 3 WHEN 'unsubscribed' THEN -10 ELSE 0 END) BETWEEN 1 AND 3 
+      THEN 'Reduce Frequency'
+    ELSE 'Stop Sending'
+  END AS recommendation
+FROM email_activities
+GROUP BY user_id
+ORDER BY engagement_score DESC;`
+  },
+
+  {
+    id: 15,
+    section: 7,
+    sectionTitle: "Email Marketing",
+    questionNumber: "7.2",
+    title: "Re-Engagement Campaign Targeting (Dormant Users)",
+    difficulty: "Medium",
+    description: `The growth team wants to launch a "win-back campaign" targeting dormant users who were once active but have stopped engaging recently.
+
+Find users who:
+- Had activity between 30-90 days ago
+- But NO activity in the last 30 days
+- Return: user_id, last_activity_at, days_dormant
+
+(Assume today is 2025-02-25)`,
+    backgroundContext: `**Why Win-Back Campaigns Work:**
+
+Dormant users (30-90 days inactive) are valuable:
+- They already know your product
+- Easier to re-engage than acquire new users
+- 5-10x cheaper than new customer acquisition
+
+**User Lifecycle:**
+- **Active**: Recent activity (0-30 days)
+- **Dormant**: No recent activity (30-90 days) ← Target this group
+- **Lost**: Gone too long (90+ days) - harder to recover
+
+**Win-Back Strategy:**
+- Send special offer: "We miss you! Here's 20% off"
+- Remind of value: "See what you've been missing"
+- Highlight new features
+
+**Why 30-90 days?**
+- Too soon (<30 days): They might come back naturally
+- Too late (>90 days): Much lower recovery rate`,
+    tables: {
+      user_activities: [
+        { user_id: 'U001', activity_at: '2025-01-15' },
+        { user_id: 'U001', activity_at: '2025-01-20' },
+        { user_id: 'U002', activity_at: '2025-02-20' },
+        { user_id: 'U002', activity_at: '2025-02-22' },
+        { user_id: 'U003', activity_at: '2024-12-10' },
+        { user_id: 'U004', activity_at: '2025-01-25' },
+        { user_id: 'U005', activity_at: '2025-02-18' },
+        { user_id: 'U006', activity_at: '2025-01-10' },
+        { user_id: 'U006', activity_at: '2025-01-12' },
+        { user_id: 'U007', activity_at: '2024-11-01' }
+      ]
+    },
+    expectedColumns: ['user_id', 'last_activity_at', 'days_dormant'],
+    hint: `Tips:
+- Use ROW_NUMBER() or LAG() to find each user's most recent activity
+- Calculate DATEDIFF from last activity to today (2025-02-25)
+- Filter WHERE days_dormant BETWEEN 30 AND 90
+
+Concepts: Window functions, Date calculations, User lifecycle analysis`,
+    concept: "Win-back campaigns, User retention, Date-based segmentation",
+    sampleAnswer: `-- ============================================================
+-- METHOD 1: ROW_NUMBER() - Most Common Approach
+-- ============================================================
+-- Best for: Simple and efficient, finding "latest" record per group
+-- When to use: When you need the most recent record per user/group
+
+WITH ranked_activities AS (
+  SELECT 
+    user_id,
+    activity_at,
+    ROW_NUMBER() OVER (
+      PARTITION BY user_id 
+      ORDER BY activity_at DESC
+    ) AS rn
+  FROM user_activities
+),
+last_activity AS (
+  SELECT 
+    user_id,
+    activity_at AS last_activity_at,
+    DATEDIFF(day, activity_at, '2025-02-25') AS days_dormant
+  FROM ranked_activities
+  WHERE rn = 1
+)
+
+SELECT 
+  user_id,
+  last_activity_at,
+  days_dormant
+FROM last_activity
+WHERE days_dormant BETWEEN 30 AND 90
+ORDER BY days_dormant ASC;
+
+
+-- ============================================================
+-- METHOD 2: LAG() - Advanced Pattern Analysis
+-- ============================================================
+-- Best for: Analyzing activity patterns, gaps between events
+-- When to use: When you need to understand user behavior over time
+
+WITH activity_with_gaps AS (
+  SELECT 
+    user_id,
+    activity_at,
+    LAG(activity_at) OVER (
+      PARTITION BY user_id 
+      ORDER BY activity_at DESC
+    ) AS prev_activity,
+    DATEDIFF(day, activity_at, '2025-02-25') AS days_since_last
+  FROM user_activities
+),
+latest_per_user AS (
+  SELECT 
+    user_id,
+    activity_at AS last_activity_at,
+    days_since_last AS days_dormant
+  FROM activity_with_gaps
+  WHERE prev_activity IS NULL  -- This is the most recent activity
+)
+
+SELECT 
+  user_id,
+  last_activity_at,
+  days_dormant
+FROM latest_per_user
+WHERE days_dormant BETWEEN 30 AND 90
+ORDER BY days_dormant ASC;
+
+
+-- ============================================================
+-- SOLUTION COMPARISON
+-- ============================================================
+-- Method 1 (ROW_NUMBER): 
+--   ✓ Simpler and more straightforward
+--   ✓ Most commonly used in industry for "latest record" problems
+--   ✓ Better performance (single window function)
+--   ✓ Easier to read and maintain
+--   
+-- Method 2 (LAG): 
+--   ✓ Shows understanding of LAG() window function
+--   ✓ Can be extended to analyze activity gaps (e.g., avg gap between activities)
+--   ✓ Useful when you need both current and previous values
+--   ✗ More complex for this specific use case
+--   ✗ Slightly harder to understand for beginners`
+  },
+
+  {
+    id: 16,
+    section: 9,
+    sectionTitle: "Product Recommendations",
+    questionNumber: "9.1",
+    title: "Co-Purchase Analysis (Frequently Bought Together)",
+    difficulty: "Hard",
+    description: `The marketing team wants to create product recommendations: "Customers who bought Product A also bought..."
+
+For users who purchased product_id = 'P001', find:
+- What other products they also purchased (in any order)
+- How many times each product was co-purchased
+- Rank products by co-purchase frequency
+
+Return top 5 frequently co-purchased products (exclude P001 itself).`,
+    backgroundContext: `**Why Co-Purchase Analysis Matters:**
+
+"Customers who bought X also bought Y" is one of the most effective marketing tactics:
+- **Amazon**: 35% of revenue from recommendations
+- **Netflix**: 80% of watched content from recommendations
+- **Increases average order value** by 10-30%
+
+**Business Use Cases:**
+1. **Product page recommendations**: Show related products
+2. **Email marketing**: "Complete your set with..."
+3. **Upsell at checkout**: "Frequently bought together"
+4. **Inventory planning**: Stock complementary products together
+
+**Example:**
+- Users who buy "iPhone" also buy: Screen protector, Case, AirPods
+
+**Why Self-Join?**
+We need to find pairs of products purchased by the same user.`,
+    tables: {
+      purchases: [
+        { user_id: 'U001', product_id: 'P001', purchase_date: '2025-02-01' },
+        { user_id: 'U001', product_id: 'P002', purchase_date: '2025-02-01' },
+        { user_id: 'U001', product_id: 'P003', purchase_date: '2025-02-01' },
+        { user_id: 'U002', product_id: 'P001', purchase_date: '2025-02-05' },
+        { user_id: 'U002', product_id: 'P002', purchase_date: '2025-02-05' },
+        { user_id: 'U003', product_id: 'P001', purchase_date: '2025-02-08' },
+        { user_id: 'U003', product_id: 'P004', purchase_date: '2025-02-08' },
+        { user_id: 'U004', product_id: 'P001', purchase_date: '2025-02-10' },
+        { user_id: 'U004', product_id: 'P002', purchase_date: '2025-02-10' },
+        { user_id: 'U004', product_id: 'P005', purchase_date: '2025-02-10' },
+        { user_id: 'U005', product_id: 'P002', purchase_date: '2025-02-12' },
+        { user_id: 'U006', product_id: 'P001', purchase_date: '2025-02-15' },
+        { user_id: 'U006', product_id: 'P003', purchase_date: '2025-02-15' }
+      ]
+    },
+    expectedColumns: ['product_id', 'copurchase_count'],
+    hint: `Tips:
+- Self-join purchases table: one side for P001, other side for other products
+- Join ON same user_id
+- WHERE p1.product_id = 'P001' AND p2.product_id != 'P001'
+- COUNT(DISTINCT user_id) to count co-purchases
+- ORDER BY count DESC LIMIT 5
+
+Concepts: Self-join, Co-occurrence analysis, Product affinity`,
+    concept: "Self-join, Recommendation systems, Market basket analysis",
+    sampleAnswer: `-- Self-join to find co-purchased products
+SELECT 
+  p2.product_id,
+  COUNT(DISTINCT p1.user_id) AS copurchase_count
+FROM purchases p1
+JOIN purchases p2 
+  ON p1.user_id = p2.user_id
+WHERE p1.product_id = 'P001'
+  AND p2.product_id != 'P001'
+GROUP BY p2.product_id
+ORDER BY copurchase_count DESC
+LIMIT 5;
+
+-- Alternative: With product names and percentage
+WITH p001_buyers AS (
+  SELECT DISTINCT user_id
+  FROM purchases
+  WHERE product_id = 'P001'
+),
+total_p001_buyers AS (
+  SELECT COUNT(*) AS total FROM p001_buyers
+)
+
+SELECT 
+  p.product_id,
+  COUNT(DISTINCT p.user_id) AS copurchase_count,
+  ROUND(
+    COUNT(DISTINCT p.user_id) * 100.0 / t.total,
+    2
+  ) AS copurchase_pct
+FROM purchases p
+JOIN p001_buyers b ON p.user_id = b.user_id
+CROSS JOIN total_p001_buyers t
+WHERE p.product_id != 'P001'
+GROUP BY p.product_id, t.total
+ORDER BY copurchase_count DESC
+LIMIT 5;`
+  },
+
+  // SECTION 10: GROWTH METRICS (原来的section 8，现在是section 10)
+  {
+    id: 17,
     section: 8,
     sectionTitle: "Growth Analysis",
     questionNumber: "8.1",
@@ -1348,7 +1769,7 @@ ORDER BY wk;`
 
   // SECTION 11: TIKTOK LAUNCH IMPACT ANALYSIS
   {
-    id: 15,
+    id: 18,
     section: 9,
     sectionTitle: "TikTok Launch Impact Analysis",
     questionNumber: "9.0",
@@ -1401,7 +1822,7 @@ KEY METRICS TO CALCULATE:
   },
 
   {
-    id: 16,
+    id: 19,
     section: 9,
     sectionTitle: "TikTok Launch Impact Analysis",
     questionNumber: "9.1",
@@ -1438,121 +1859,182 @@ ORDER BY cpa ASC;`
   },
 
   {
-    id: 17,
+    id: 20,
     section: 9,
     sectionTitle: "TikTok Launch Impact Analysis",
     questionNumber: "9.2",
-    title: "Portfolio-Level Efficiency with Normalization",
+    title: "Overall Performance Analysis: Before vs After TikTok",
     difficulty: "Medium",
-    description: "Compare December (before TikTok) vs January (after TikTok) using normalized efficiency: signups per $1000 spend.",
-    backgroundContext: `Because total budget changed (Dec: $13K → Jan: $18K), we need to normalize by spend to see if TikTok improved overall efficiency.
+    description: `The growth team launched TikTok ads in January. Before that, we had never launched on the platform, and we would like to measure whether TikTok brings incremental value for the total conversions.
 
-**The Key Insight:**
-- If "signups per $1K spend" increased → TikTok made the portfolio more efficient
-- If it decreased → TikTok dragged down efficiency despite adding volume`,
+Question: How would you approach this?`,
+    approachPrompt: {
+      question: "How would you approach this?",
+      answer: `Compare the overall performance December (before TikTok) vs January (after TikTok) with these metrics:
+
+- Conversion metrics: conversion volume (total signups), Conversion rate (signups/impressions)
+- Efficiency metrics: CPM = (spend/impressions)*1000, CPA = spend/signups`
+    },
+    backgroundContext: `**Strategic Context:**
+The marketing team wants to evaluate a new advertising channel (TikTok). This is a common scenario in growth analytics where you need to measure the impact of adding a new marketing channel.
+
+**Analysis Framework:**
+When evaluating a new channel's incremental value, we compare:
+1. **Before vs After**: How did overall performance change?
+2. **New Channel vs Existing Channels**: Is the new channel more or less efficient?
+
+**Key Metrics to Track:**
+- **Conversion Metrics**: Conversion volume (total signups), Conversion rate (signups/impressions)
+- **Efficiency Metrics**: CPA (Cost Per Acquisition), CPM (Cost Per Mille/1000 impressions)
+
+In this question, you'll focus on Step 1: Compare December (before TikTok) vs January (after TikTok).`,
     tables: {
-      ads_data_dec: [
-        { channel: 'Facebook', date: '2024-12-15', spend: 5000, signups: 250 },
-        { channel: 'Facebook', date: '2024-12-20', spend: 3000, signups: 150 },
-        { channel: 'Google', date: '2024-12-15', spend: 3000, signups: 200 },
-        { channel: 'Google', date: '2024-12-20', spend: 2000, signups: 133 }
-      ],
-      ads_data_jan: [
-        { channel: 'Facebook', date: '2024-01-15', spend: 5000, signups: 125 },
-        { channel: 'Facebook', date: '2024-01-20', spend: 5000, signups: 130 },
-        { channel: 'Google', date: '2024-01-15', spend: 3000, signups: 150 },
-        { channel: 'Google', date: '2024-01-20', spend: 3000, signups: 155 },
-        { channel: 'TikTok', date: '2024-01-15', spend: 2000, signups: 80 },
-        { channel: 'TikTok', date: '2024-01-20', spend: 2000, signups: 85 }
+      ads_data: [
+        { channel: 'Facebook', date: '2024-12-15', spend: 5000, impressions: 500000, signups: 250 },
+        { channel: 'Facebook', date: '2024-12-20', spend: 3000, impressions: 300000, signups: 150 },
+        { channel: 'Google', date: '2024-12-15', spend: 3000, impressions: 400000, signups: 200 },
+        { channel: 'Google', date: '2024-12-20', spend: 2000, impressions: 250000, signups: 133 },
+        { channel: 'Facebook', date: '2025-01-15', spend: 5000, impressions: 480000, signups: 125 },
+        { channel: 'Facebook', date: '2025-01-20', spend: 5000, impressions: 490000, signups: 130 },
+        { channel: 'Google', date: '2025-01-15', spend: 3000, impressions: 380000, signups: 150 },
+        { channel: 'Google', date: '2025-01-20', spend: 3000, impressions: 390000, signups: 155 },
+        { channel: 'TikTok', date: '2025-01-15', spend: 2000, impressions: 600000, signups: 80 },
+        { channel: 'TikTok', date: '2025-01-20', spend: 2000, impressions: 620000, signups: 85 }
       ]
     },
-    expectedColumns: ['period', 'total_spend', 'total_signups', 'signups_per_1k_spend', 'cpa'],
-    hint: "Calculate total spend and signups for each period. Then: (total_signups / total_spend) × 1000. Use UNION ALL to combine December and January results.",
-    concept: "Normalization, Pre/post analysis, UNION ALL, Portfolio metrics",
-    sampleAnswer: `WITH dec_metrics AS (
-  SELECT
-    'December (Before TikTok)' AS period,
-    SUM(spend) AS total_spend,
-    SUM(signups) AS total_signups,
-    ROUND((SUM(signups) * 1000.0) / NULLIF(SUM(spend), 0), 2) AS signups_per_1k_spend,
-    ROUND(SUM(spend) / NULLIF(SUM(signups), 0), 2) AS cpa
-  FROM ads_data_dec
-),
-jan_metrics AS (
-  SELECT
-    'January (After TikTok)' AS period,
-    SUM(spend) AS total_spend,
-    SUM(signups) AS total_signups,
-    ROUND((SUM(signups) * 1000.0) / NULLIF(SUM(spend), 0), 2) AS signups_per_1k_spend,
-    ROUND(SUM(spend) / NULLIF(SUM(signups), 0), 2) AS cpa
-  FROM ads_data_jan
-)
-
-SELECT * FROM dec_metrics
-UNION ALL
-SELECT * FROM jan_metrics;
-
--- Compare the signups_per_1k_spend values:
--- If Jan > Dec → TikTok improved efficiency
--- If Jan < Dec → TikTok reduced efficiency`
-  },
-
-  {
-    id: 18,
-    section: 9,
-    sectionTitle: "TikTok Launch Impact Analysis",
-    questionNumber: "9.3",
-    title: "Incremental Analysis - TikTok's Contribution",
-    difficulty: "Medium",
-    description: "Isolate TikTok's incremental contribution by comparing: (1) Existing channels in January vs (2) TikTok in January.",
-    backgroundContext: `**Incremental Analysis answers:**
-- What did TikTok specifically contribute?
-- Is TikTok's CPA better or worse than existing channels?
-- Did existing channels' performance change after TikTok launch?
-
-This helps determine if TikTok's incremental cost is justified by its incremental signups.`,
-    tables: {
-      ads_data_jan: [
-        { channel: 'Facebook', date: '2024-01-15', spend: 5000, signups: 125 },
-        { channel: 'Facebook', date: '2024-01-20', spend: 5000, signups: 130 },
-        { channel: 'Google', date: '2024-01-15', spend: 3000, signups: 150 },
-        { channel: 'Google', date: '2024-01-20', spend: 3000, signups: 155 },
-        { channel: 'TikTok', date: '2024-01-15', spend: 2000, signups: 80 },
-        { channel: 'TikTok', date: '2024-01-20', spend: 2000, signups: 85 }
-      ]
-    },
-    expectedColumns: ['channel_group', 'total_spend', 'total_signups', 'cpa', 'pct_of_total_signups'],
-    hint: "Use CASE WHEN to group channels into 'Existing Channels' vs 'TikTok'. Calculate totals for each group. Compare their CPAs and contribution percentages.",
-    concept: "Incremental analysis, CASE WHEN grouping, Contribution analysis",
-    sampleAnswer: `WITH channel_groups AS (
+    expectedColumns: ['period', 'total_signups', 'total_impressions', 'conversion_rate', 'cpa', 'cpm'],
+    hint: `Tips:
+- Use DATE_TRUNC or EXTRACT to identify December vs January
+- Calculate totals for each period using SUM()
+- Use UNION ALL to combine both periods in one result`,
+    concept: "Pre/post analysis, Conversion metrics, Efficiency metrics, Date functions",
+    sampleAnswer: `WITH monthly_metrics AS (
   SELECT
     CASE 
-      WHEN channel = 'TikTok' THEN 'TikTok (New)'
-      ELSE 'Existing Channels'
-    END AS channel_group,
-    spend,
-    signups
-  FROM ads_data_jan
-),
-totals AS (
-  SELECT SUM(signups) AS grand_total_signups
-  FROM ads_data_jan
+      WHEN DATE_TRUNC('month', date) = '2024-12-01' THEN 'December (Before TikTok)'
+      WHEN DATE_TRUNC('month', date) = '2025-01-01' THEN 'January (After TikTok)'
+    END AS period,
+    SUM(signups) AS total_signups,
+    SUM(impressions) AS total_impressions,
+    SUM(spend) AS total_spend
+  FROM ads_data
+  WHERE DATE_TRUNC('month', date) IN ('2024-12-01', '2025-01-01')
+  GROUP BY DATE_TRUNC('month', date)
 )
 
 SELECT
-  cg.channel_group,
-  SUM(cg.spend) AS total_spend,
-  SUM(cg.signups) AS total_signups,
-  ROUND(SUM(cg.spend) / NULLIF(SUM(cg.signups), 0), 2) AS cpa,
-  ROUND((SUM(cg.signups) * 100.0) / t.grand_total_signups, 2) AS pct_of_total_signups
-FROM channel_groups cg
-CROSS JOIN totals t
-GROUP BY cg.channel_group, t.grand_total_signups
-ORDER BY cg.channel_group;
+  period,
+  total_signups,
+  total_impressions,
+  ROUND((total_signups * 100.0) / NULLIF(total_impressions, 0), 4) AS conversion_rate,
+  ROUND(total_spend / NULLIF(total_signups, 0), 2) AS cpa,
+  ROUND((total_spend * 1000.0) / NULLIF(total_impressions, 0), 2) AS cpm
+FROM monthly_metrics
+ORDER BY period;
 
 -- Analysis:
--- If TikTok CPA < Existing Channels CPA → Great incremental efficiency
--- If TikTok CPA > Existing Channels CPA → Expensive but may be worth it for volume/diversification`
+-- Compare January vs December on:
+-- 1. Conversion volume: Did total signups increase?
+-- 2. Conversion rate: Did efficiency (signups/impressions) improve?
+-- 3. CPA: Did cost per signup go up or down?
+-- 4. CPM: Did cost per 1000 impressions change?`
+  },
+
+  {
+    id: 21,
+    section: 9,
+    sectionTitle: "TikTok Launch Impact Analysis",
+    questionNumber: "9.3",
+    title: "Channel-Level Performance: TikTok vs Existing Channels",
+    difficulty: "Hard",
+    description: `Following up on the previous analysis, now compare the performance of the TikTok channel with the average of existing channels (Facebook + Google) in January. This will help determine if TikTok's efficiency justifies the investment.
+
+Question: How would you approach this?`,
+    approachPrompt: {
+      question: "How would you approach this?",
+      answer: `1. Filter for January data only (date >= '2025-01-01')
+2. Group channels into two categories:
+   - 'TikTok' (new channel)
+   - 'Existing Channels' (Facebook + Google combined)
+3. Calculate the same metrics as Q17 for each group:
+   - Conversion volume, Conversion rate, CPA, CPM`
+    },
+    backgroundContext: `**Why Channel-Level Comparison Matters:**
+
+After seeing the overall impact, we need to understand:
+- Is TikTok more or less efficient than our existing channels?
+- Should we increase TikTok budget, maintain it, or reduce it?
+
+**The Analysis:**
+Compare TikTok (new channel) vs the average performance of existing channels (Facebook + Google) during the same period (January).
+
+**What to Look For:**
+- **If TikTok CPA < Existing avg CPA**: TikTok is more efficient → Scale up TikTok
+- **If TikTok CVR > Existing avg CVR**: TikTok converts better → Invest more
+- **If TikTok CPM is much lower**: TikTok impressions are cheaper → Good for awareness
+
+**Real-World Decision:**
+This analysis helps marketing teams decide budget allocation across channels.`,
+    tables: {
+      ads_data: [
+        { channel: 'Facebook', date: '2024-12-15', spend: 5000, impressions: 500000, signups: 250 },
+        { channel: 'Facebook', date: '2024-12-20', spend: 3000, impressions: 300000, signups: 150 },
+        { channel: 'Google', date: '2024-12-15', spend: 3000, impressions: 400000, signups: 200 },
+        { channel: 'Google', date: '2024-12-20', spend: 2000, impressions: 250000, signups: 133 },
+        { channel: 'Facebook', date: '2025-01-15', spend: 5000, impressions: 480000, signups: 125 },
+        { channel: 'Facebook', date: '2025-01-20', spend: 5000, impressions: 490000, signups: 130 },
+        { channel: 'Google', date: '2025-01-15', spend: 3000, impressions: 380000, signups: 150 },
+        { channel: 'Google', date: '2025-01-20', spend: 3000, impressions: 390000, signups: 155 },
+        { channel: 'TikTok', date: '2025-01-15', spend: 2000, impressions: 600000, signups: 80 },
+        { channel: 'TikTok', date: '2025-01-20', spend: 2000, impressions: 620000, signups: 85 }
+      ]
+    },
+    expectedColumns: ['channel_group', 'total_signups', 'total_impressions', 'conversion_rate', 'cpa', 'cpm'],
+    hint: `Tips:
+- Use CASE WHEN to create channel groups
+- Group by the channel_group to get aggregated metrics
+- Compare TikTok's metrics with Existing Channels' average`,
+    concept: "Channel comparison, CASE WHEN grouping, Incremental analysis, Performance benchmarking",
+    sampleAnswer: `WITH january_data AS (
+  SELECT
+    channel,
+    spend,
+    impressions,
+    signups
+  FROM ads_data
+  WHERE date >= '2025-01-01'
+),
+channel_groups AS (
+  SELECT
+    CASE 
+      WHEN channel = 'TikTok' THEN 'TikTok (New)'
+      ELSE 'Existing Channels (FB + Google)'
+    END AS channel_group,
+    spend,
+    impressions,
+    signups
+  FROM january_data
+)
+
+SELECT
+  channel_group,
+  SUM(signups) AS total_signups,
+  SUM(impressions) AS total_impressions,
+  ROUND((SUM(signups) * 100.0) / NULLIF(SUM(impressions), 0), 4) AS conversion_rate,
+  ROUND(SUM(spend) / NULLIF(SUM(signups), 0), 2) AS cpa,
+  ROUND((SUM(spend) * 1000.0) / NULLIF(SUM(impressions), 0), 2) AS cpm
+FROM channel_groups
+GROUP BY channel_group
+ORDER BY channel_group DESC;
+
+-- Decision Framework:
+-- If TikTok CPA < Existing CPA → TikTok is more cost-efficient
+-- If TikTok CVR > Existing CVR → TikTok converts better
+-- If TikTok CPM < Existing CPM → TikTok impressions are cheaper
+-- 
+-- Example Recommendation:
+-- "TikTok has 2x lower CPM but 50% lower CVR, resulting in similar CPA.
+--  Recommend: Maintain TikTok for brand awareness, optimize for conversion."`
   }
 ];
 
@@ -1568,6 +2050,7 @@ function MarketingAnalyticsSQL() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [showPreQuestion, setShowPreQuestion] = useState(false);
   const [showPostQuestion, setShowPostQuestion] = useState(false);
+  const [showApproachAnswer, setShowApproachAnswer] = useState(false);
   const [showAlternativeSolutions, setShowAlternativeSolutions] = useState(false);
   const [showSampleAnswer, setShowSampleAnswer] = useState(false); // For Check Answer button
   
@@ -1668,7 +2151,9 @@ function MarketingAnalyticsSQL() {
     );
 
     if (isCorrect) {
-      setQueryResult({ success: true });
+      // Generate mock result data based on expected columns
+      const mockData = generateMockResult(question);
+      setQueryResult({ success: true, data: mockData });
       const newCompleted = new Set(completedQuestions);
       newCompleted.add(question.id);
       setCompletedQuestions(newCompleted);
@@ -1680,6 +2165,39 @@ function MarketingAnalyticsSQL() {
     }
   };
 
+  // Generate mock result based on question
+  const generateMockResult = (q) => {
+    // Generate 3-5 rows of sample data
+    const rowCount = Math.min(5, Math.max(3, Math.floor(Math.random() * 3) + 3));
+    const rows = [];
+    
+    for (let i = 0; i < rowCount; i++) {
+      const row = {};
+      q.expectedColumns.forEach(col => {
+        // Generate appropriate mock data based on column name
+        if (col.includes('date') || col.includes('month') || col === 'mth') {
+          row[col] = `2024-01-${String(i + 1).padStart(2, '0')}`;
+        } else if (col.includes('channel')) {
+          const channels = ['Facebook', 'Google', 'TikTok', 'LinkedIn'];
+          row[col] = channels[i % channels.length];
+        } else if (col.includes('rate') || col.includes('pct') || col.includes('ratio')) {
+          row[col] = (Math.random() * 0.5 + 0.2).toFixed(4);
+        } else if (col.includes('cnt') || col.includes('count') || col.includes('users') || col.includes('signups')) {
+          row[col] = Math.floor(Math.random() * 500) + 50;
+        } else if (col.includes('revenue') || col.includes('spend') || col.includes('amount') || col.includes('roas')) {
+          row[col] = Math.floor(Math.random() * 5000) + 500;
+        } else if (col.includes('avg') || col.includes('average')) {
+          row[col] = (Math.random() * 200 + 50).toFixed(2);
+        } else {
+          row[col] = `Sample ${i + 1}`;
+        }
+      });
+      rows.push(row);
+    }
+    
+    return rows;
+  };
+
   const resetQuestion = () => {
     setSqlCode('');
     setQueryResult(null);
@@ -1689,6 +2207,7 @@ function MarketingAnalyticsSQL() {
     setShowAnswer(false);
     setShowPreQuestion(false);
     setShowPostQuestion(false);
+    setShowApproachAnswer(false);
     setShowSampleAnswer(false); // Reset sample answer
   };
 
@@ -1722,15 +2241,6 @@ function MarketingAnalyticsSQL() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              {/* Feedback Button */}
-              <a 
-                href=""
-                className="text-gray-400 hover:text-white transition-colors text-sm flex items-center gap-1.5"
-                onClick={(e) => e.preventDefault()}
-              >
-                💬 Feedback
-              </a>
-
               {/* Question Navigator */}
               <div className="flex gap-1.5 flex-wrap max-w-md">
                 {QUESTIONS.map((q, idx) => {
@@ -1758,9 +2268,9 @@ function MarketingAnalyticsSQL() {
                           ? 'bg-green-600 text-white'
                           : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                       }`}
-                      title={`${q.questionNumber}: ${q.title}${isCurrentlyLocked ? ' (Locked)' : ''}`}
+                      title={`Question ${idx + 1}: ${q.title}${isCurrentlyLocked ? ' (Locked)' : ''}`}
                     >
-                      <span>{q.questionNumber.split('.')[1]}</span>
+                      <span>{idx + 1}</span>
                       {isCurrentlyLocked && (
                         <Lock className="w-2.5 h-2.5 absolute bottom-0.5 right-0.5" />
                       )}
@@ -1782,17 +2292,17 @@ function MarketingAnalyticsSQL() {
               {!isPremium ? (
                 <>
                   <a
-                    href="https://sailincheng.gumroad.com/l/marketingSQLPro"
+                    href="https://sailincheng.gumroad.com/l/marketingSQLPro/9exgf3sring"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-5 py-2.5 rounded-lg font-semibold transition-all shadow-lg flex items-center gap-2 no-underline"
                   >
                     <Trophy className="w-4 h-4" />
-                    Upgrade - $49
+                    Unlock Lifetime Access
                   </a>
                   <button
                     onClick={() => setShowLicenseModal(true)}
-                    className="text-xs text-gray-400 hover:text-white underline"
+                    className="px-4 py-2 rounded-lg font-medium text-sm border-2 border-blue-500/30 text-blue-400 hover:bg-blue-500/10 hover:border-blue-500 transition-all"
                   >
                     Already purchased?
                   </button>
@@ -1803,6 +2313,16 @@ function MarketingAnalyticsSQL() {
                   Premium
                 </div>
               )}
+
+              {/* Contact Support Button */}
+              <a 
+                href="https://forms.gle/9qF4E75gFM9CnDHR8"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm flex items-center gap-2"
+              >
+                💬 Contact Support
+              </a>
             </div>
           </div>
         </div>
@@ -1912,7 +2432,30 @@ function MarketingAnalyticsSQL() {
             <div className="space-y-3">
               <h3 className="text-lg font-bold text-green-400">📋 Question</h3>
               <h2 className="text-2xl font-bold text-white">{question.title}</h2>
-              <p className="text-gray-300 text-base leading-relaxed">{question.description}</p>
+              <p className="text-gray-300 text-base leading-relaxed whitespace-pre-line">{question.description}</p>
+              
+              {/* Approach Prompt (for Q17 and Q18) */}
+              {question.approachPrompt && (
+                <div className="mt-4 bg-blue-900/20 border border-blue-800 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-blue-300 font-semibold text-sm">
+                      🤔 {question.approachPrompt.question}
+                    </p>
+                    <button
+                      onClick={() => setShowApproachAnswer(!showApproachAnswer)}
+                      className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center gap-1"
+                    >
+                      {showApproachAnswer ? 'Hide Answer' : 'Show Answer'}
+                      {showApproachAnswer ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </button>
+                  </div>
+                  {showApproachAnswer && (
+                    <div className="mt-3 pt-3 border-t border-blue-700 text-sm text-blue-200 whitespace-pre-line">
+                      {question.approachPrompt.answer}
+                    </div>
+                  )}
+                </div>
+              )}
               
               {/* Exercise Definitions */}
               {question.exerciseDefinitions && (
@@ -2012,7 +2555,7 @@ function MarketingAnalyticsSQL() {
 
               {showHint && (
                 <div className="mt-3 p-4 bg-yellow-900/20 border-l-4 border-yellow-500 rounded">
-                  <div className="text-sm text-yellow-200">{question.hint}</div>
+                  <div className="text-sm text-yellow-200 whitespace-pre-line">{question.hint}</div>
                   {question.concept && (
                     <div className="mt-2 text-xs text-yellow-300">
                       <strong>Concepts:</strong> {question.concept}
@@ -2069,12 +2612,12 @@ function MarketingAnalyticsSQL() {
                     <h3 className="text-xl font-bold text-white mb-2">Premium Content</h3>
                     <p className="text-gray-400 mb-6">Unlock to view sample data and practice SQL</p>
                     <a
-                      href="https://sailincheng.gumroad.com/l/marketingSQLPro"
+                      href="https://sailincheng.gumroad.com/l/marketingSQLPro/9exgf3sring"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-8 py-3 rounded-lg font-semibold transition-all shadow-lg w-full mb-3 no-underline"
                     >
-                      Upgrade to Premium - $49
+                      Unlock Lifetime Access
                     </a>
                     <button
                       onClick={() => setShowLicenseModal(true)}
@@ -2118,7 +2661,7 @@ function MarketingAnalyticsSQL() {
                 value={sqlCode}
                 onChange={(e) => setSqlCode(e.target.value)}
                 disabled={isLocked}
-                placeholder={isLocked ? "🔒 Upgrade to write SQL..." : `-- Write your Snowflake SQL query here...
+                placeholder={isLocked ? "🔒 Unlock lifetime access to write SQL..." : `-- Write your Snowflake SQL query here...
 SELECT 
   column1,
   column2
@@ -2187,6 +2730,39 @@ GROUP BY column1;`}
                         <div className="text-sm text-green-400">Great job! Your query looks good.</div>
                       </div>
                     </div>
+
+                    {/* Query Result Table */}
+                    {queryResult.data && queryResult.data.length > 0 && (
+                      <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+                        <div className="bg-gray-750 px-4 py-2 border-b border-gray-700">
+                          <span className="text-sm font-semibold text-green-400">✓ Query Results ({queryResult.data.length} rows)</span>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead className="bg-gray-750 border-b border-gray-700">
+                              <tr>
+                                {Object.keys(queryResult.data[0]).map((col) => (
+                                  <th key={col} className="px-3 py-2 text-left font-semibold text-gray-300 font-mono">
+                                    {col}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {queryResult.data.map((row, idx) => (
+                                <tr key={idx} className="border-t border-gray-700 hover:bg-gray-750/50">
+                                  {Object.values(row).map((val, vidx) => (
+                                    <td key={vidx} className="px-3 py-2 text-gray-300 font-mono">
+                                      {val}
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Post-Question Prompt */}
                     {question.postQuestionPrompt && (
@@ -2411,7 +2987,7 @@ GROUP BY column1;`}
             <div className="text-center">
               <p className="text-gray-500 text-sm mb-2">Don't have a license key?</p>
               <a
-                href="https://sailincheng.gumroad.com/l/marketingSQLPro"
+                href="https://sailincheng.gumroad.com/l/marketingSQLPro/9exgf3sring"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-400 hover:text-blue-300 text-sm underline"
